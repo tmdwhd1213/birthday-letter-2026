@@ -1,0 +1,7 @@
+# 원본 사진(용량 큼) - 최적화본은 assets/photos 에 있음
+image/
+# 작년 프로젝트
+vite-project/
+.DS_Store
+Thumbs.db
+.claude/
