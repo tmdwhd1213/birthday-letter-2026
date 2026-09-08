@@ -1,3 +1,5 @@
+import './style.css';
+
 (() => {
   'use strict';
   const $ = (s, el = document) => el.querySelector(s);
