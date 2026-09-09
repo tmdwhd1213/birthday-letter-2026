@@ -461,11 +461,11 @@ import './style.css';
 
   /* ───────── 쿠폰북 (긁기 + 사용) ───────── */
   const COUPONS = [
-    { id: 'dish',    icon: '🧽', title: '설거지 면제권',      desc: '그날 설거지는 종팔이가 다 함' },
-    { id: 'night',   icon: '🍜', title: '야식 배달권',        desc: '밤 12시에도 군말 없이 사 옴' },
+    { id: 'piggy',   icon: '🐴', title: '목마 5분 이용권',    desc: '종팔이 어깨 위에서 5분, 연장 불가' },
+    { id: 'crave',   icon: '🍗', title: '땡기는 음식 바로 먹기권', desc: '지금 먹고 싶은 거, 시간 불문 바로' },
     { id: 'nag',     icon: '🙊', title: '잔소리 프리패스',    desc: '무슨 짓을 해도 그날은 노코멘트' },
     { id: 'side',    icon: '🛡️', title: '무조건 내 편 권',    desc: '네가 틀려도 그날은 네 편' },
-    { id: 'massage', icon: '💆', title: '마사지 30분권',      desc: '어깨, 다리, 발 중 골라서' },
+    { id: 'massage', icon: '💆', title: '마사지 10분권',      desc: '어깨, 다리, 발 중 골라서' },
     { id: 'date',    icon: '🗺️', title: '데이트 전권 위임권', desc: '코스도 메뉴도 전부 구러이 마음대로' },
     { id: 'sorry',   icon: '🙇', title: '먼저 사과권',        desc: '싸우면 이유 불문 종팔이가 먼저 사과' },
     { id: 'sleep',   icon: '😴', title: '늦잠 보장권',        desc: '안 깨움. 절대. 점심까지도' },
