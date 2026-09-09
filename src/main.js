@@ -383,14 +383,14 @@ import './style.css';
       for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
       const rms = Math.sqrt(sum / data.length);
       if (calibN < CALIB) { baseline = (baseline * calibN + rms) / (calibN + 1); calibN++; return; }
-      const th = Math.max(baseline * 3.5, 0.06);
+      const th = Math.max(baseline * 2.8, 0.045);   // 감도: 값이 작을수록 잘 꺼짐
       const level = Math.min(1, rms / (th * 1.8));
       meter.style.setProperty('--level', level.toFixed(2));
       candlesEl.style.setProperty('--blow', (level * -32).toFixed(1) + 'deg');
       candlesEl.style.setProperty('--blowY', (1 - level * 0.45).toFixed(2));
       if (paused) return;
       hot = rms > th ? hot + 1 : 0;
-      if (hot >= 4 && performance.now() - lastBlow > 1300) {
+      if (hot >= 3 && performance.now() - lastBlow > 1300) {
         lastBlow = performance.now();
         hot = 0;
         const c = candles.find(x => !x.classList.contains('out'));
