@@ -975,3 +975,77 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .bgm-btn.playing { animation: bgmBob 1.4s ease-in-out infinite; }
 @keyframes bgmBob { 0%, 100% { transform: rotate(-8deg) scale(1); } 50% { transform: rotate(8deg) scale(1.08); } }
+
+/* ═══════════════════════════════════════
+   케이크 장면 v2: 실제 케이크 이미지 + 초 스프라이트
+   ═══════════════════════════════════════ */
+.cake-scene {
+  width: min(330px, 90vw);
+  height: auto;
+  margin: 8px auto 0;
+  transform: none;
+}
+.cake-photo {
+  position: relative;
+  border-radius: 22px;
+  overflow: visible;
+  --blow: 0deg;
+  --blowY: 1;
+}
+.cake-img {
+  width: 100%;
+  height: auto;
+  border-radius: 22px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .28);
+  transition: filter 1s;
+  display: block;
+}
+.cake-section.dark .cake-img { filter: brightness(.86) saturate(.95); }
+.cake-photo .candle {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--w);
+  display: block;
+  z-index: 3;
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .18));
+}
+.cake-photo .candle .body { width: 100%; height: auto; display: block; }
+.cake-photo .flame-hit {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+/* 손가락 영역 넓히기 */
+.cake-photo .flame-hit::before {
+  content: "";
+  position: absolute;
+  left: -45%; right: -45%;
+  top: -60%; bottom: -30%;
+}
+.cake-photo .flame {
+  width: 100%;
+  height: auto;
+  display: block;
+  transform-origin: 50% 100%;
+  animation: flicker .32s ease-in-out infinite alternate;
+  transition: transform .25s ease, opacity .25s ease;
+  filter: drop-shadow(0 0 6px rgba(255, 190, 80, .8)) drop-shadow(0 0 18px rgba(255, 140, 40, .45));
+  box-shadow: none;
+  border-radius: 0;
+  background: none;
+}
+.cake-photo .flame::after { display: none; }
+.cake-section:not(.dark) .cake-photo .flame { filter: drop-shadow(0 0 4px rgba(255, 190, 80, .5)); }
+.cake-photo .candle.out .flame { transform: scale(0); opacity: 0; animation: none; }
+.cake-photo .smoke { position: absolute; left: 50%; bottom: 8%; }
+.cake-photo .candle.out .smoke i { animation: rise 1.5s ease-out forwards; }
+.cake-section .glow { top: 36%; }
+@media (max-width: 360px) {
+  .cake-scene { transform: none; height: auto; }
+}

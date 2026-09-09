@@ -341,7 +341,7 @@ import './style.css';
   function initBlowDetector(candles, blowOut) {
     const btn = $('#micBtn');
     const meter = $('#micMeter');
-    const candlesEl = $('.candles');
+    const candlesEl = $('.cake-photo');
     let stream = null, actx = null, analyser = null, data = null, raf = null;
     let baseline = 0, calibN = 0, hot = 0, lastBlow = 0, paused = false;
     const CALIB = 40;   // 주변 소음 측정 프레임 수 (약 0.7초)
