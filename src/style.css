@@ -230,7 +230,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   margin: 0 0 8px;
   text-transform: uppercase;
 }
-.card-illust { width: 190px; height: auto; margin: 4px auto 6px; }
+.card-illust { width: 176px; height: auto; margin: 4px auto 8px; }
 .card-illust, .hero-illust, .paper-illust { mix-blend-mode: multiply; }
 .card-title {
   font-family: var(--hand);
@@ -654,7 +654,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .paper p { margin: 0 0 32px; }
 .paper p:last-child { margin-bottom: 0; }
-.paper-illust { height: 128px; width: auto; margin: 0 auto 32px; }
+.paper-illust { height: 160px; width: auto; margin: 0 auto 32px; }
 .days-inline { font-family: var(--hand); font-size: 24px; color: var(--pink); font-weight: 700; }
 .paper .sign {
   margin-top: 48px;
