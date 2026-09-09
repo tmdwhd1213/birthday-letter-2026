@@ -5,14 +5,24 @@ import './style.css';
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
+  /* ───────── 설정 ───────── */
+  const START_UTC = Date.UTC(2024, 4, 23);   // 만난 날 (KST)
+  const BIRTHDAY_MD = null;                  // 구러이 생일 'MM-DD' (예: '09-20'). 넣으면 카운트다운에 '다음 생일'이 추가됨
+  const REPLY_PHONE = '';                    // 종팔이 번호 (예: '01012345678'). 넣으면 '문자로 보내기' 버튼이 생김
+
   /* ───────── 함께한 날 (한국 시간 기준, 만난 날 = 1일) ───────── */
-  const START_UTC = Date.UTC(2024, 4, 23);
-  function daysTogether() {
+  function kstTodayUTC() {
     const now = new Date();
     const kst = new Date(now.getTime() + (now.getTimezoneOffset() + 540) * 60000);
-    const today = Date.UTC(kst.getFullYear(), kst.getMonth(), kst.getDate());
-    return Math.round((today - START_UTC) / 864e5) + 1;
+    return Date.UTC(kst.getFullYear(), kst.getMonth(), kst.getDate());
   }
+  function daysTogether() {
+    return Math.round((kstTodayUTC() - START_UTC) / 864e5) + 1;
+  }
+  const storage = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (_) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) { /* ignore */ } },
+  };
 
   /* ───────── 토스트 ───────── */
   let toastTimer;
@@ -202,6 +212,9 @@ import './style.css';
     renderCollage();
     initReveal();
     initCake();
+    initCountdown();
+    initCoupons();
+    initReply();
   }
 
   function countUp(el, target, dur) {
@@ -283,21 +296,22 @@ import './style.css';
 
     function litCount() { return candles.filter(c => !c.classList.contains('out')).length; }
 
-    candles.forEach(c => {
-      $('.flame-hit', c).addEventListener('click', () => {
-        if (c.classList.contains('out')) return;
-        c.classList.add('out');
-        buzz(25);
-        if (litCount() > 0) {
-          msg.textContent = '후— 하나 껐다! 하나 더 🕯️';
-          msg.classList.add('show');
-        } else {
-          allOut();
-        }
-      });
-    });
+    function blowOut(c) {
+      if (c.classList.contains('out')) return;
+      c.classList.add('out');
+      buzz(25);
+      if (litCount() > 0) {
+        msg.textContent = '후— 하나 껐다! 하나 더 🕯️';
+        msg.classList.add('show');
+      } else {
+        allOut();
+      }
+    }
+    candles.forEach(c => $('.flame-hit', c).addEventListener('click', () => blowOut(c)));
+    const mic = initBlowDetector(candles, blowOut);
 
     function allOut() {
+      mic.pause();
       section.classList.remove('dark');
       msg.innerHTML = '🎉 소원 빌었지?<br>이뤄지게 종팔이가 옆에서 열심히 도울게';
       msg.classList.add('show');
@@ -318,6 +332,283 @@ import './style.css';
       hint.innerHTML = '촛불을 하나씩 눌러서 꺼줘.<br>소원 비는 거 잊지 말고 🙏';
       relight.hidden = true;
       buzz(15);
+      mic.resume();
+    });
+  }
+
+  /* ───────── 입김 감지 (마이크) ───────── */
+  function initBlowDetector(candles, blowOut) {
+    const btn = $('#micBtn');
+    const meter = $('#micMeter');
+    const candlesEl = $('.candles');
+    let stream = null, actx = null, analyser = null, data = null, raf = null;
+    let baseline = 0, calibN = 0, hot = 0, lastBlow = 0, paused = false;
+    const CALIB = 40;   // 주변 소음 측정 프레임 수 (약 0.7초)
+
+    async function start() {
+      if (stream) { stop(); return; }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast('이 브라우저는 마이크를 못 써 😢 촛불을 탭해서 꺼줘', 2000); return;
+      }
+      btn.disabled = true;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        });
+      } catch (_) {
+        btn.disabled = false;
+        toast('마이크 권한이 없어. 촛불을 탭해서 꺼줘!', 2000); return;
+      }
+      btn.disabled = false;
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') { try { await actx.resume(); } catch (_) { /* ignore */ } }
+      analyser = actx.createAnalyser();
+      analyser.fftSize = 1024;
+      actx.createMediaStreamSource(stream).connect(analyser);
+      data = new Float32Array(analyser.fftSize);
+      baseline = 0; calibN = 0; hot = 0; paused = false;
+      btn.classList.add('on');
+      btn.textContent = '🎤 듣는 중… 후— 불어봐!';
+      meter.hidden = false;
+      toast('촛불 가까이에서 후— 불어봐', 1600);
+      loop();
+    }
+
+    function loop() {
+      raf = requestAnimationFrame(loop);
+      if (!analyser) return;
+      analyser.getFloatTimeDomainData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
+      const rms = Math.sqrt(sum / data.length);
+      if (calibN < CALIB) { baseline = (baseline * calibN + rms) / (calibN + 1); calibN++; return; }
+      const th = Math.max(baseline * 3.5, 0.06);
+      const level = Math.min(1, rms / (th * 1.8));
+      meter.style.setProperty('--level', level.toFixed(2));
+      candlesEl.style.setProperty('--blow', (level * -32).toFixed(1) + 'deg');
+      candlesEl.style.setProperty('--blowY', (1 - level * 0.45).toFixed(2));
+      if (paused) return;
+      hot = rms > th ? hot + 1 : 0;
+      if (hot >= 4 && performance.now() - lastBlow > 1300) {
+        lastBlow = performance.now();
+        hot = 0;
+        const c = candles.find(x => !x.classList.contains('out'));
+        if (c) blowOut(c);
+      }
+    }
+
+    function stop() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = null;
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (actx) { try { actx.close(); } catch (_) { /* ignore */ } }
+      stream = actx = analyser = null;
+      btn.classList.remove('on');
+      btn.textContent = '🎤 입김으로 끄기';
+      meter.hidden = true;
+      candlesEl.style.removeProperty('--blow');
+      candlesEl.style.removeProperty('--blowY');
+    }
+
+    btn.addEventListener('click', start);
+    document.addEventListener('visibilitychange', () => { if (document.hidden && stream) stop(); });
+    return {
+      pause() { paused = true; setTimeout(() => { if (paused) stop(); }, 1500); },
+      resume() { paused = false; },
+    };
+  }
+
+  /* ───────── 다음 기념일 카운트다운 ───────── */
+  function initCountdown() {
+    const DAY = 864e5;
+    const today = kstTodayUTC();
+    const items = [];
+    for (const n of [900, 1000, 1111, 1500, 2000, 3000]) items.push({ label: `${n.toLocaleString('ko-KR')}일`, t: START_UTC + (n - 1) * DAY });
+    for (let y = 3; y <= 10; y++) items.push({ label: `${y}주년`, t: Date.UTC(2024 + y, 4, 23) });
+    if (BIRTHDAY_MD) {
+      const [m, d] = BIRTHDAY_MD.split('-').map(Number);
+      const ty = new Date(today).getUTCFullYear();
+      let bt = Date.UTC(ty, m - 1, d);
+      if (bt <= today) bt = Date.UTC(ty + 1, m - 1, d);
+      items.push({ label: '구러이 생일 🎂', t: bt });
+    }
+    const upcoming = items.filter(i => i.t > today).sort((a, b) => a.t - b.t);
+    if (!upcoming.length) return;
+    const [first, ...rest] = upcoming;
+    const fmt = t => {
+      const d = new Date(t);
+      const w = ['일', '월', '화', '수', '목', '금', '토'][d.getUTCDay()];
+      return `${d.getUTCFullYear()}. ${String(d.getUTCMonth() + 1).padStart(2, '0')}. ${String(d.getUTCDate()).padStart(2, '0')} (${w})`;
+    };
+    $('#countLabel').textContent = first.label;
+    $('#countDate').textContent = fmt(first.t);
+    $('#countList').innerHTML = rest.slice(0, 4).map(i =>
+      `<li><span>${i.label}</span><em>D-${Math.round((i.t - today) / DAY)}</em><small>${fmt(i.t)}</small></li>`).join('');
+
+    const dEl = $('#countD'), tickEl = $('#countTick');
+    const targetMs = first.t - 9 * 3600e3; // 그날 KST 자정
+    function tick() {
+      const left = targetMs - Date.now();
+      if (left <= 0) { dEl.textContent = 'D-DAY'; tickEl.textContent = '오늘이야! 🎉'; return; }
+      const days = Math.floor(left / DAY);
+      const h = Math.floor((left % DAY) / 3600e3), m = Math.floor((left % 3600e3) / 60e3), sec = Math.floor((left % 60e3) / 1000);
+      dEl.textContent = `D-${Math.round((first.t - today) / DAY)}`;
+      tickEl.textContent = `${days}일 ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')} 남았어`;
+      setTimeout(tick, 1000 - (Date.now() % 1000));
+    }
+    tick();
+  }
+
+  /* ───────── 쿠폰북 (긁기 + 사용) ───────── */
+  const COUPONS = [
+    { id: 'dish',    icon: '🧽', title: '설거지 면제권',      desc: '그날 설거지는 종팔이가 다 함' },
+    { id: 'night',   icon: '🍜', title: '야식 배달권',        desc: '밤 12시에도 군말 없이 사 옴' },
+    { id: 'nag',     icon: '🙊', title: '잔소리 프리패스',    desc: '무슨 짓을 해도 그날은 노코멘트' },
+    { id: 'side',    icon: '🛡️', title: '무조건 내 편 권',    desc: '네가 틀려도 그날은 네 편' },
+    { id: 'massage', icon: '💆', title: '마사지 30분권',      desc: '어깨, 다리, 발 중 골라서' },
+    { id: 'date',    icon: '🗺️', title: '데이트 전권 위임권', desc: '코스도 메뉴도 전부 구러이 마음대로' },
+    { id: 'sorry',   icon: '🙇', title: '먼저 사과권',        desc: '싸우면 이유 불문 종팔이가 먼저 사과' },
+    { id: 'sleep',   icon: '😴', title: '늦잠 보장권',        desc: '안 깨움. 절대. 점심까지도' },
+  ];
+  const COUPON_KEY = 'gurui-coupons-v1';
+
+  function initCoupons() {
+    const wrap = $('#coupons');
+    const state = storage.get(COUPON_KEY, { revealed: [], used: {} });
+    const save = () => storage.set(COUPON_KEY, state);
+    const fmtDate = iso => { const d = new Date(iso); return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`; };
+
+    COUPONS.forEach((c, i) => {
+      const el = document.createElement('div');
+      el.className = 'coupon';
+      el.dataset.id = c.id;
+      el.style.setProperty('--r', ((i % 2 ? 1 : -1) * (1 + Math.random() * 1.5)).toFixed(1) + 'deg');
+      el.innerHTML = `
+        <div class="coupon-inner">
+          <span class="coupon-no">No.${String(i + 1).padStart(2, '0')}</span>
+          <span class="coupon-icon">${c.icon}</span>
+          <h4>${c.title}</h4>
+          <p>${c.desc}</p>
+          <button class="coupon-use" type="button">사용하기</button>
+          <div class="coupon-stamp"><b>사용완료</b><small></small><a href="#" class="coupon-undo">실수야? 되돌리기</a></div>
+        </div>
+        <canvas class="scratch" aria-label="긁어서 쿠폰 확인"></canvas>`;
+      wrap.appendChild(el);
+
+      const useBtn = $('.coupon-use', el);
+      const stamp = $('.coupon-stamp', el);
+      const canvas = $('.scratch', el);
+
+      function render() {
+        const used = state.used[c.id];
+        el.classList.toggle('used', !!used);
+        if (used) $('small', stamp).textContent = fmtDate(used) + ' 사용';
+      }
+      render();
+
+      // 사용하기: 두 번 눌러야 확정
+      let armed = null;
+      useBtn.addEventListener('click', () => {
+        if (armed) {
+          clearTimeout(armed); armed = null;
+          state.used[c.id] = new Date().toISOString(); save(); render();
+          useBtn.textContent = '사용하기';
+          useBtn.classList.remove('armed');
+          buzz([20, 30, 20]);
+          toast('사용 완료! 종팔이한테 이 화면 보여줘 📸', 2200);
+          confetti({ count: 60, hearts: true, x: innerWidth / 2, y: innerHeight * 0.5 });
+        } else {
+          useBtn.textContent = '진짜? 한 번 더 누르면 사용돼';
+          useBtn.classList.add('armed');
+          armed = setTimeout(() => { armed = null; useBtn.textContent = '사용하기'; useBtn.classList.remove('armed'); }, 3000);
+        }
+      });
+      $('.coupon-undo', el).addEventListener('click', e => {
+        e.preventDefault();
+        delete state.used[c.id]; save(); render();
+        toast('되돌렸어. 아직 안 쓴 걸로!');
+      });
+
+      if (state.revealed.includes(c.id)) { el.classList.add('revealed'); canvas.remove(); }
+      else initScratch(canvas, () => { state.revealed.push(c.id); save(); el.classList.add('revealed'); buzz(20); setTimeout(() => canvas.remove(), 600); });
+      if (io) io.observe(el);
+    });
+  }
+
+  function initScratch(canvas, onReveal) {
+    const ctx2 = canvas.getContext('2d', { willReadFrequently: true });
+    let w = 0, h = 0, drawing = false, strokes = 0, done = false;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    function paint() {
+      const r = canvas.getBoundingClientRect();
+      w = Math.max(1, Math.round(r.width)); h = Math.max(1, Math.round(r.height));
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const g = ctx2.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, '#d9d4dc'); g.addColorStop(0.45, '#f3f0f4'); g.addColorStop(0.55, '#c9c3cf'); g.addColorStop(1, '#e6e1ea');
+      ctx2.fillStyle = g; ctx2.fillRect(0, 0, w, h);
+      ctx2.fillStyle = 'rgba(255,255,255,.35)';
+      for (let i = 0; i < 40; i++) ctx2.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+      ctx2.fillStyle = '#7a6f84';
+      ctx2.font = '700 20px Gaegu, sans-serif';
+      ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
+      ctx2.fillText('긁어서 확인 ✨', w / 2, h / 2 - 8);
+      ctx2.font = '14px Gaegu, sans-serif';
+      ctx2.fillText('손가락으로 문질러 봐', w / 2, h / 2 + 16);
+    }
+    // 레이아웃/폰트 준비 후 그리기 (섹션이 보일 때 크기가 잡힘)
+    const ro = new ResizeObserver(() => { if (!drawing && strokes === 0) paint(); });
+    ro.observe(canvas);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (strokes === 0) paint(); });
+
+    function pos(e) { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+    function scratchAt(x, y) {
+      ctx2.globalCompositeOperation = 'destination-out';
+      ctx2.beginPath(); ctx2.arc(x, y, 22, 0, Math.PI * 2); ctx2.fill();
+      ctx2.globalCompositeOperation = 'source-over';
+      if (++strokes % 6 === 0) check();
+    }
+    function check() {
+      if (done || !canvas.width) return;
+      const img = ctx2.getImageData(0, 0, canvas.width, canvas.height).data;
+      let clear = 0, total = 0;
+      for (let i = 3; i < img.length; i += 4 * 7) { total++; if (img[i] < 40) clear++; }
+      if (clear / total > 0.5) { done = true; ro.disconnect(); onReveal(); }
+    }
+    canvas.addEventListener('pointerdown', e => { drawing = true; canvas.setPointerCapture(e.pointerId); scratchAt(...pos(e)); });
+    canvas.addEventListener('pointermove', e => { if (drawing) scratchAt(...pos(e)); });
+    const end = () => { drawing = false; check(); };
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+  }
+
+  /* ───────── 답장 남기기 ───────── */
+  function initReply() {
+    const ta = $('#replyText');
+    const send = $('#replySend');
+    const sms = $('#replySms');
+    const KEY = 'gurui-reply-draft';
+    ta.value = storage.get(KEY, '');
+    ta.addEventListener('input', () => storage.set(KEY, ta.value));
+
+    const body = () => `💌 구러이의 답장\n\n${ta.value.trim()}`;
+    if (REPLY_PHONE) {
+      sms.hidden = false;
+      const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const update = () => { sms.href = `sms:${REPLY_PHONE}${ios ? '&' : '?'}body=${encodeURIComponent(body())}`; };
+      update(); ta.addEventListener('input', update);
+    }
+
+    send.addEventListener('click', async () => {
+      if (!ta.value.trim()) { toast('한 줄만 써줘 🥺'); ta.focus(); return; }
+      buzz(15);
+      if (navigator.share) {
+        try { await navigator.share({ text: body() }); toast('보냈어! 고마워 💖', 1800); return; }
+        catch (e) { if (e && e.name === 'AbortError') return; }
+      }
+      try { await navigator.clipboard.writeText(body()); toast('복사했어! 종팔이 채팅방에 붙여넣기 해줘', 2400); }
+      catch (_) { ta.select(); toast('길게 눌러서 복사한 다음 채팅방에 붙여줘', 2400); }
     });
   }
 

@@ -111,8 +111,28 @@
       <div class="plate"></div>
     </div>
 
+    <div class="mic-wrap">
+      <button class="btn ghost small mic-btn" id="micBtn" type="button">🎤 입김으로 끄기</button>
+      <div class="mic-meter" id="micMeter" hidden><i></i></div>
+    </div>
+
     <p class="cake-msg" id="cakeMsg" aria-live="polite"></p>
     <button class="btn ghost" id="relight" type="button" hidden>촛불 다시 켜기 🕯️</button>
+  </section>
+
+  <!-- 카운트다운 -->
+  <section class="count-section">
+    <div class="sec-head reveal">
+      <p class="sec-eyebrow">NEXT</p>
+      <h3 class="sec-title">다음 기념일까지</h3>
+    </div>
+    <div class="count-card reveal">
+      <p class="count-label" id="countLabel">-</p>
+      <p class="count-d" id="countD">D-</p>
+      <p class="count-date" id="countDate"></p>
+      <p class="count-tick" id="countTick"></p>
+    </div>
+    <ul class="count-list reveal" id="countList"></ul>
   </section>
 
   <!-- 갤러리 -->
@@ -124,6 +144,16 @@
       <button class="btn ghost small" id="shuffle" type="button">다시 섞기 🔀</button>
     </div>
     <div class="collage" id="collage"></div>
+  </section>
+
+  <!-- 쿠폰북 -->
+  <section class="coupon-section">
+    <div class="sec-head reveal">
+      <p class="sec-eyebrow">COUPON BOOK</p>
+      <h3 class="sec-title">서른셋 쿠폰북</h3>
+      <p class="sec-desc">은박을 긁어서 확인해 봐.<br>쓸 때는 종팔이 앞에서 <b>사용하기</b>를 눌러주면 돼.<br>유효기간: 서른셋 내내</p>
+    </div>
+    <div class="coupons" id="coupons"></div>
   </section>
 
   <!-- 편지 -->
@@ -163,6 +193,23 @@
 
       <p class="sign">너를 진심으로 아끼는<br><strong>종팔이가</strong></p>
     </article>
+  </section>
+
+  <!-- 답장 -->
+  <section class="reply-section">
+    <div class="sec-head reveal">
+      <p class="sec-eyebrow">P.S.</p>
+      <h3 class="sec-title">답장 남기기</h3>
+      <p class="sec-desc">한 줄이어도 좋아.<br>보내기를 누르면 카카오톡을 골라서 바로 보낼 수 있어.</p>
+    </div>
+    <div class="reply-box reveal">
+      <textarea id="replyText" rows="5" maxlength="1000" placeholder="종팔아, " aria-label="답장 내용"></textarea>
+      <div class="reply-actions">
+        <button class="btn" id="replySend" type="button">보내기 💌</button>
+        <a class="btn ghost" id="replySms" href="#" hidden>문자로 보내기</a>
+      </div>
+      <p class="reply-note" id="replyNote">공유가 안 되는 브라우저에서는 글이 복사되니까 채팅방에 붙여넣기만 하면 돼.</p>
+    </div>
   </section>
 </main>
 

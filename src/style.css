@@ -723,3 +723,235 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ═══════════════════════════════════════
+   추가 기능: 입김 / 카운트다운 / 쿠폰북 / 답장
+   ═══════════════════════════════════════ */
+
+/* ─── 입김 감지 ─── */
+.mic-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 6px; }
+.mic-btn.on {
+  background: var(--pink);
+  color: #fff;
+  box-shadow: 0 4px 0 var(--pink-deep), 0 0 0 6px rgba(242, 139, 160, .25);
+  animation: micPulse 1.4s ease-in-out infinite;
+}
+@keyframes micPulse { 0%, 100% { box-shadow: 0 4px 0 var(--pink-deep), 0 0 0 4px rgba(242, 139, 160, .25); } 50% { box-shadow: 0 4px 0 var(--pink-deep), 0 0 0 12px rgba(242, 139, 160, 0); } }
+.mic-meter {
+  width: 180px; height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .18);
+  overflow: hidden;
+}
+.mic-meter i {
+  display: block;
+  height: 100%;
+  width: calc(var(--level, 0) * 100%);
+  background: linear-gradient(90deg, #ffd88a, #ff9a3c, #ff5a5a);
+  border-radius: inherit;
+  transition: width .08s linear;
+}
+.cake-section:not(.dark) .mic-meter { background: #eadfcf; }
+/* 입김 세기에 따라 불꽃이 눕는다 */
+@keyframes flicker {
+  0%   { transform: skewX(var(--blow, 0deg)) scale(1, var(--blowY, 1)) rotate(-2deg); }
+  50%  { transform: skewX(var(--blow, 0deg)) scale(1.05, calc(var(--blowY, 1) * .96)) rotate(1.5deg); }
+  100% { transform: skewX(var(--blow, 0deg)) scale(.94, calc(var(--blowY, 1) * 1.06)) rotate(-1deg); }
+}
+
+/* ─── 카운트다운 ─── */
+.count-section { padding: 56px 20px 36px; text-align: center; }
+.count-card {
+  display: inline-block;
+  min-width: 250px;
+  background: #fff;
+  border-radius: 24px;
+  padding: 22px 30px 20px;
+  box-shadow: var(--shadow);
+  border: 1px solid #f3e6d8;
+  position: relative;
+}
+.count-card::before {
+  content: "🎈";
+  position: absolute;
+  top: -16px; left: 18px;
+  font-size: 26px;
+  transform: rotate(-12deg);
+}
+.count-label { margin: 0; font-family: var(--hand); font-size: 22px; color: var(--brown-soft); }
+.count-d {
+  margin: 2px 0 0;
+  font-family: var(--hand);
+  font-weight: 700;
+  font-size: 64px;
+  line-height: 1;
+  color: var(--pink);
+  text-shadow: 3px 3px 0 var(--pink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.count-date { margin: 8px 0 0; font-size: 14px; color: var(--brown-soft); }
+.count-tick {
+  margin: 10px 0 0;
+  font-family: var(--hand);
+  font-size: 19px;
+  color: var(--brown);
+  font-variant-numeric: tabular-nums;
+}
+.count-list {
+  list-style: none;
+  margin: 22px auto 0;
+  padding: 0;
+  max-width: 320px;
+  display: grid;
+  gap: 8px;
+}
+.count-list li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  column-gap: 10px;
+  background: rgba(255, 255, 255, .6);
+  border: 1px dashed #e6d6c6;
+  border-radius: 14px;
+  padding: 8px 14px;
+  text-align: left;
+}
+.count-list span { font-family: var(--hand); font-size: 19px; color: var(--brown); }
+.count-list em { font-style: normal; font-family: var(--hand); font-weight: 700; font-size: 19px; color: var(--pink); }
+.count-list small { grid-column: 1 / -1; font-size: 12px; color: var(--brown-soft); }
+
+/* ─── 쿠폰북 ─── */
+.coupon-section { padding: 56px 0 40px; }
+.coupon-section .sec-desc b { color: var(--pink); font-weight: 700; }
+.coupons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px 14px;
+  padding: 6px 18px 10px;
+}
+.coupon {
+  position: relative;
+  border-radius: 16px;
+  transform: rotate(var(--r, 0deg));
+  opacity: 0;
+  transition: opacity .7s ease, transform .7s ease;
+  min-height: 190px;
+}
+.coupon.in { opacity: 1; }
+.coupon-inner {
+  position: relative;
+  height: 100%;
+  min-height: 190px;
+  background: #fff;
+  border-radius: 16px;
+  border: 2px dashed var(--pink-soft);
+  padding: 34px 12px 14px;
+  text-align: center;
+  box-shadow: 0 8px 20px rgba(107, 79, 58, .14);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+}
+/* 티켓 느낌의 양옆 홈 */
+.coupon-inner::before, .coupon-inner::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 18px; height: 18px;
+  margin-top: -9px;
+  border-radius: 50%;
+  background: var(--cream);
+  border: 2px dashed var(--pink-soft);
+}
+.coupon-inner::before { left: -11px; }
+.coupon-inner::after { right: -11px; }
+.coupon-no {
+  position: absolute;
+  top: 8px; left: 12px;
+  font-family: var(--hand);
+  font-size: 13px;
+  letter-spacing: .1em;
+  color: var(--brown-soft);
+}
+.coupon-icon { font-size: 34px; line-height: 1; margin-bottom: 8px; }
+.coupon h4 { margin: 0 0 4px; font-family: var(--hand); font-weight: 700; font-size: 21px; color: var(--brown); line-height: 1.2; }
+.coupon p { margin: 0 0 12px; font-size: 12.5px; line-height: 1.5; color: var(--brown-soft); flex: 1; }
+.coupon-use {
+  font-family: var(--hand);
+  font-weight: 700;
+  font-size: 17px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--pink);
+  color: #fff;
+  box-shadow: 0 3px 0 var(--pink-deep);
+  transition: transform .15s;
+}
+.coupon-use:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--pink-deep); }
+.coupon-use.armed { background: var(--brown); box-shadow: 0 3px 0 #4a3527; font-size: 14px; }
+.coupon-stamp {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, .78);
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+}
+.coupon-stamp b {
+  font-family: var(--hand);
+  font-size: 30px;
+  color: #e05a7a;
+  border: 3px solid #e05a7a;
+  border-radius: 10px;
+  padding: 2px 12px;
+  transform: rotate(-14deg);
+  opacity: .9;
+}
+.coupon-stamp small { font-size: 12px; color: var(--brown-soft); margin-top: 4px; }
+.coupon-undo { font-size: 11px; color: var(--brown-soft); text-decoration: underline; margin-top: 6px; }
+.coupon.used .coupon-stamp { display: grid; }
+.coupon.used .coupon-use { visibility: hidden; }
+.scratch {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  border-radius: 16px;
+  touch-action: none;
+  cursor: grab;
+  transition: opacity .5s;
+  z-index: 2;
+}
+.coupon.revealed .scratch { opacity: 0; pointer-events: none; }
+
+/* ─── 답장 ─── */
+.reply-section { padding: 40px 18px calc(80px + var(--safe-bottom)); }
+.reply-box {
+  background: #fff;
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid #f3e6d8;
+}
+.reply-box textarea {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  resize: none;
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--ink);
+  background: var(--paper);
+  background-image: repeating-linear-gradient(transparent 0 26px, #eadfcf 26px 27px);
+  background-position: 0 6px;
+  border-radius: 12px;
+  padding: 6px 12px;
+  min-height: 140px;
+}
+.reply-box textarea::placeholder { color: #c9b9a8; }
+.reply-actions { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+.reply-actions .btn { font-size: 21px; padding: 13px 26px; text-decoration: none; }
+.reply-note { margin: 12px 0 0; font-size: 12.5px; color: var(--brown-soft); text-align: center; line-height: 1.6; }
