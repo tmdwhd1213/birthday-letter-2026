@@ -7,3 +7,5 @@ Thumbs.db
 .claude/
 node_modules/
 dist/
+# 원본 음원(용량 큼) - 압축본은 public/assets/bgm.mp3
+audio/
