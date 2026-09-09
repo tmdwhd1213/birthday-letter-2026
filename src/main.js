@@ -7,7 +7,7 @@ import './style.css';
 
   /* ───────── 설정 ───────── */
   const START_UTC = Date.UTC(2024, 4, 23);   // 만난 날 (KST)
-  const BIRTHDAY_MD = null;                  // 구러이 생일 'MM-DD' (예: '09-20'). 넣으면 카운트다운에 '다음 생일'이 추가됨
+  const BIRTHDAY_MD = '09-18';                  // 구러이 생일 'MM-DD' (예: '09-20'). 넣으면 카운트다운에 '다음 생일'이 추가됨
   const REPLY_PHONE = '';                    // 종팔이 번호 (예: '01012345678'). 넣으면 '문자로 보내기' 버튼이 생김
 
   /* ───────── 함께한 날 (한국 시간 기준, 만난 날 = 1일) ───────── */
@@ -186,6 +186,7 @@ import './style.css';
     if (accepted) return;
     accepted = true;
     $('#inviteCard').classList.add('accepted');
+    bgm.start();
     no.hidden = true;
     yes.textContent = '고마워 💖';
     buzz([30, 40, 30]);
@@ -611,6 +612,113 @@ import './style.css';
       catch (_) { ta.select(); toast('길게 눌러서 복사한 다음 채팅방에 붙여줘', 2400); }
     });
   }
+
+  /* ───────── 배경음악: 오르골 '생일 축하합니다' (Web Audio 합성, 파일 없음) ───────── */
+  const bgm = (() => {
+    const btn = $('#bgmBtn');
+    const BPM = 88, beat = 60 / BPM;
+    const F = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
+                C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00, C6: 1046.5 };
+    // [음, 박자] — 3/4 박자, 못갖춘마디(G G) 시작
+    const MELODY = [
+      ['G4', .75], ['G4', .25], ['A4', 1], ['G4', 1], ['C5', 1], ['B4', 2],
+      ['G4', .75], ['G4', .25], ['A4', 1], ['G4', 1], ['D5', 1], ['C5', 2],
+      ['G4', .75], ['G4', .25], ['G5', 1], ['E5', 1], ['C5', 1], ['B4', 1], ['A4', 1],
+      ['F5', .75], ['F5', .25], ['E5', 1], ['C5', 1], ['D5', 1], ['C5', 2],
+    ];
+    // 마디별 반주 (아르페지오) — 못갖춘마디 1박 뒤부터 마디 시작
+    const CHORDS = [
+      ['C4', 'E4', 'G4'], ['G4', 'B4', 'D5'], ['G4', 'B4', 'D5'], ['C4', 'E4', 'G4'],
+      ['C4', 'E4', 'G4'], ['F4', 'A4', 'C5'], ['C4', 'E4', 'G4'], ['G4', 'B4', 'D5'], ['C4', 'E4', 'G4'],
+    ];
+    const PICKUP = 1;                              // 못갖춘마디 길이(박)
+    const SONG_BEATS = PICKUP + CHORDS.length * 3; // 28박
+    const GAP_BEATS = 4;                           // 반복 사이 쉼
+
+    let actx = null, master = null, nextLoopAt = 0, timer = null;
+    let muted = storage.get('gurui-bgm-muted', false);
+    let started = false;
+
+    function pluck(freq, t, vel, decay) {
+      // 오르골 음색: 기음 + 배음 두 개, 빠른 어택, 지수 감쇠
+      const g = actx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vel, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+      g.connect(master);
+      [[1, 1], [2, .35], [3, .12], [4.2, .05]].forEach(([mul, amp]) => {
+        const o = actx.createOscillator();
+        o.type = 'sine';
+        o.frequency.value = freq * mul;
+        const og = actx.createGain();
+        og.gain.value = amp;
+        o.connect(og).connect(g);
+        o.start(t);
+        o.stop(t + decay + 0.05);
+      });
+    }
+
+    function scheduleSong(t0) {
+      let t = t0;
+      for (const [n, b] of MELODY) { pluck(F[n], t, 0.42, 1.6); t += b * beat; }
+      CHORDS.forEach((ch, m) => {
+        const base = t0 + (PICKUP + m * 3) * beat;
+        ch.forEach((n, i) => pluck(F[n] / 2, base + i * beat, 0.16, 1.4));   // 한 옥타브 아래로 잔잔하게
+        pluck(F[ch[0]] / 2, base + 2.5 * beat, 0.08, 0.8);
+      });
+    }
+
+    function tickScheduler() {
+      if (!actx) return;
+      while (nextLoopAt < actx.currentTime + 1.0) {
+        scheduleSong(nextLoopAt);
+        nextLoopAt += (SONG_BEATS + GAP_BEATS) * beat;
+      }
+    }
+
+    function render() {
+      if (!btn) return;
+      btn.hidden = !started;
+      btn.textContent = muted ? '🔇' : '🎵';
+      btn.classList.toggle('playing', started && !muted);
+      btn.setAttribute('aria-label', muted ? '배경음악 켜기' : '배경음악 끄기');
+    }
+
+    function start() {
+      if (started) return;
+      started = true;
+      try {
+        actx = new (window.AudioContext || window.webkitAudioContext)();
+        master = actx.createGain();
+        master.gain.value = 0.55;
+        master.connect(actx.destination);
+        nextLoopAt = actx.currentTime + 0.6;
+        timer = setInterval(tickScheduler, 250);
+        tickScheduler();
+        if (muted) actx.suspend();
+      } catch (_) { started = false; }
+      render();
+    }
+
+    function toggle() {
+      if (!actx) return;
+      muted = !muted;
+      storage.set('gurui-bgm-muted', muted);
+      if (muted) actx.suspend(); else actx.resume();
+      buzz(10);
+      toast(muted ? '배경음악 껐어' : '배경음악 켰어 🎵');
+      render();
+    }
+
+    if (btn) btn.addEventListener('click', toggle);
+    document.addEventListener('visibilitychange', () => {
+      if (!actx) return;
+      if (document.hidden) actx.suspend();
+      else if (!muted) actx.resume();
+    });
+    render();
+    return { start };
+  })();
 
   window.addEventListener('resize', () => { if (raf) resizeCanvas(); });
 })();

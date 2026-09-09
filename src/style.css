@@ -955,3 +955,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .reply-actions { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
 .reply-actions .btn { font-size: 21px; padding: 13px 26px; text-decoration: none; }
 .reply-note { margin: 12px 0 0; font-size: 12.5px; color: var(--brown-soft); text-align: center; line-height: 1.6; }
+
+/* ─── 배경음악 토글 ─── */
+.bgm-btn {
+  position: fixed;
+  top: calc(12px + var(--safe-top));
+  right: 12px;
+  z-index: 90;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 1px solid #f0e3d3;
+  background: rgba(255, 255, 255, .9);
+  box-shadow: 0 6px 16px rgba(107, 79, 58, .18);
+  font-size: 20px;
+  display: grid;
+  place-items: center;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.bgm-btn.playing { animation: bgmBob 1.4s ease-in-out infinite; }
+@keyframes bgmBob { 0%, 100% { transform: rotate(-8deg) scale(1); } 50% { transform: rotate(8deg) scale(1.08); } }
