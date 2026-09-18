@@ -564,7 +564,7 @@ import './style.css';
       ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
       ctx2.fillText('긁어서 확인 ✨', w / 2, h / 2 - 8);
       ctx2.font = '14px Gaegu, sans-serif';
-      ctx2.fillText('손가락으로 문질러 봐', w / 2, h / 2 + 16);
+      ctx2.fillText('↔ 좌우로 문질러 봐', w / 2, h / 2 + 16);
     }
     // 레이아웃/폰트 준비 후 그리기 (섹션이 보일 때 크기가 잡힘)
     const ro = new ResizeObserver(() => { if (!drawing && strokes === 0) paint(); });
@@ -574,7 +574,7 @@ import './style.css';
     function pos(e) { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
     function scratchAt(x, y) {
       ctx2.globalCompositeOperation = 'destination-out';
-      ctx2.beginPath(); ctx2.arc(x, y, 22, 0, Math.PI * 2); ctx2.fill();
+      ctx2.beginPath(); ctx2.arc(x, y, 26, 0, Math.PI * 2); ctx2.fill();
       ctx2.globalCompositeOperation = 'source-over';
       if (++strokes % 6 === 0) check();
     }
@@ -583,13 +583,19 @@ import './style.css';
       const img = ctx2.getImageData(0, 0, canvas.width, canvas.height).data;
       let clear = 0, total = 0;
       for (let i = 3; i < img.length; i += 4 * 7) { total++; if (img[i] < 40) clear++; }
-      if (clear / total > 0.5) { done = true; ro.disconnect(); onReveal(); }
+      if (clear / total > 0.42) { done = true; ro.disconnect(); onReveal(); }
     }
-    canvas.addEventListener('pointerdown', e => { drawing = true; canvas.setPointerCapture(e.pointerId); scratchAt(...pos(e)); });
+    canvas.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      drawing = true;
+      try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+      scratchAt(...pos(e));
+    });
     canvas.addEventListener('pointermove', e => { if (drawing) scratchAt(...pos(e)); });
-    const end = () => { drawing = false; check(); };
-    canvas.addEventListener('pointerup', end);
-    canvas.addEventListener('pointercancel', end);
+    canvas.addEventListener('pointerup', () => { drawing = false; check(); });
+    // 브라우저가 세로 스크롤로 판단하면 pointercancel 이 옴 → 긁기 중단 (스크롤은 그대로 진행)
+    canvas.addEventListener('pointercancel', () => { drawing = false; });
+    canvas.addEventListener('lostpointercapture', () => { drawing = false; });
   }
 
   /* ───────── 답장 남기기 ───────── */

@@ -919,7 +919,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   inset: 0;
   width: 100%; height: 100%;
   border-radius: 16px;
-  touch-action: none;
+  touch-action: pan-y;   /* 위아래 스와이프는 스크롤, 좌우 문지르기만 긁기 */
   cursor: grab;
   transition: opacity .5s;
   z-index: 2;
