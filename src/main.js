@@ -312,8 +312,13 @@ import './style.css';
     const mic = initBlowDetector(candles, blowOut);
 
     function allOut() {
+      const viaMic = mic.isListening();
       mic.pause();
       section.classList.remove('dark');
+      if (viaMic) {
+        // 배경음악은 멈춘 상태 → 짧은 오르골 생일 축하곡 → 배경음악 다시
+        setTimeout(() => playJingle().then(() => bgm.unduck()), 500);
+      }
       msg.innerHTML = '🎉 소원 빌었지?<br>이뤄지게 종팔이가 옆에서 열심히 도울게';
       msg.classList.add('show');
       hint.innerHTML = '촛불 다 껐다! 생일 축하해 구러이 🎂<br>이제 아래로 내려가 보자 👇';
@@ -361,6 +366,7 @@ import './style.css';
         toast('마이크 권한이 없어. 촛불을 탭해서 꺼줘!', 2000); return;
       }
       btn.disabled = false;
+      bgm.duck();   // 음악 소리가 입김으로 잡히지 않게 잠시 멈춤
       actx = new (window.AudioContext || window.webkitAudioContext)();
       if (actx.state === 'suspended') { try { await actx.resume(); } catch (_) { /* ignore */ } }
       analyser = actx.createAnalyser();
@@ -371,12 +377,11 @@ import './style.css';
       btn.classList.add('on');
       btn.textContent = '🎤 듣는 중… 후— 불어봐!';
       meter.hidden = false;
-      toast('촛불 가까이에서 후— 불어봐', 1600);
-      loop();
+      toast('음악은 잠깐 멈출게. 촛불 가까이에서 후— 불어봐!', 2000);
+      raf = setInterval(loop, 30);   // 렌더링과 무관하게 30ms마다 감지
     }
 
     function loop() {
-      raf = requestAnimationFrame(loop);
       if (!analyser) return;
       analyser.getFloatTimeDomainData(data);
       let sum = 0;
@@ -398,12 +403,13 @@ import './style.css';
       }
     }
 
-    function stop() {
-      if (raf) cancelAnimationFrame(raf);
+    function stop(keepDucked) {
+      if (raf) clearInterval(raf);
       raf = null;
       if (stream) stream.getTracks().forEach(t => t.stop());
       if (actx) { try { actx.close(); } catch (_) { /* ignore */ } }
       stream = actx = analyser = null;
+      if (!keepDucked) bgm.unduck();
       btn.classList.remove('on');
       btn.textContent = '🎤 입김으로 끄기';
       meter.hidden = true;
@@ -414,7 +420,9 @@ import './style.css';
     btn.addEventListener('click', start);
     document.addEventListener('visibilitychange', () => { if (document.hidden && stream) stop(); });
     return {
-      pause() { paused = true; setTimeout(() => { if (paused) stop(); }, 1500); },
+      isListening() { return !!stream && !paused; },
+      // 촛불이 다 꺼졌을 때: 잠시 뒤 마이크를 닫되 배경음악 복귀는 징글 쪽에서 처리
+      pause() { paused = true; setTimeout(() => { if (paused) stop(true); }, 1500); },
       resume() { paused = false; },
     };
   }
@@ -613,11 +621,60 @@ import './style.css';
     });
   }
 
+  /* ───────── 오르골 생일 축하 징글 (약 6초, Web Audio 합성) ───────── */
+  function playJingle() {
+    return new Promise(resolve => {
+      let actx;
+      try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch (_) { resolve(); return; }
+      const master = actx.createGain();
+      master.gain.value = 0.7;
+      master.connect(actx.destination);
+      const BPM = 108, beat = 60 / BPM;
+      const F = { C4: 261.63, E4: 329.63, G4: 392.00, A4: 440.00, B4: 493.88, C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99 };
+      const MELODY = [
+        ['G4', .75], ['G4', .25], ['A4', 1], ['G4', 1], ['C5', 1], ['B4', 2],
+        ['G4', .75], ['G4', .25], ['A4', 1], ['G4', 1], ['D5', 1], ['C5', 2],
+      ];
+      const CHORDS = [['C4', 'E4', 'G4'], ['G4', 'B4', 'D5'], ['G4', 'B4', 'D5'], ['C4', 'E4', 'G4']];
+      function pluck(freq, t, vel, decay) {
+        const g = actx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vel, t + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+        g.connect(master);
+        [[1, 1], [2, .35], [3, .12], [4.2, .05]].forEach(([mul, amp]) => {
+          const o = actx.createOscillator();
+          o.type = 'sine';
+          o.frequency.value = freq * mul;
+          const og = actx.createGain();
+          og.gain.value = amp;
+          o.connect(og).connect(g);
+          o.start(t);
+          o.stop(t + decay + 0.05);
+        });
+      }
+      const t0 = actx.currentTime + 0.15;
+      let t = t0;
+      for (const [n, b] of MELODY) { pluck(F[n], t, 0.45, 1.6); t += b * beat; }
+      CHORDS.forEach((ch, m) => {
+        const base = t0 + (1 + m * 3) * beat;
+        ch.forEach((n, i) => pluck(F[n] / 2, base + i * beat, 0.16, 1.4));
+      });
+      // 마지막 화음
+      ['C4', 'E4', 'G4', 'C5', 'E5', 'G5'].forEach((n, i) => pluck(F[n], t + i * 0.04, 0.3, 2.4));
+      const total = (t - t0) + 2.6;
+      const p = actx.resume ? actx.resume() : Promise.resolve();
+      Promise.resolve(p).catch(() => {});
+      setTimeout(() => { try { actx.close(); } catch (_) { /* ignore */ } resolve(); }, total * 1000);
+    });
+  }
+
   /* ───────── 배경음악 (assets/bgm.mp3, 반복 재생) ───────── */
   const bgm = (() => {
     const btn = $('#bgmBtn');
     const VOLUME = 0.6;
-    let audio = null, started = false, fadeTimer = null;
+    let audio = null, started = false, fadeTimer = null, ducked = false;
     let muted = storage.get('gurui-bgm-muted', false);
 
     function render() {
@@ -659,20 +716,33 @@ import './style.css';
       if (!audio) return;
       muted = !muted;
       storage.set('gurui-bgm-muted', muted);
-      if (muted) { clearInterval(fadeTimer); audio.pause(); } else play();
+      if (muted) { clearInterval(fadeTimer); audio.pause(); } else { ducked = false; play(); }
       buzz(10);
       toast(muted ? '배경음악 껐어' : '배경음악 켰어 🎵');
       render();
+    }
+
+    // 마이크 사용 중 잠시 멈춤 / 복귀 (사용자의 음소거 설정은 건드리지 않음)
+    function duck() {
+      if (!audio || muted || ducked) return;
+      ducked = true;
+      clearInterval(fadeTimer);
+      audio.pause();
+    }
+    function unduck() {
+      if (!ducked) return;
+      ducked = false;
+      if (!muted && !document.hidden) play();
     }
 
     if (btn) btn.addEventListener('click', toggle);
     document.addEventListener('visibilitychange', () => {
       if (!audio) return;
       if (document.hidden) audio.pause();
-      else if (!muted) play();
+      else if (!muted && !ducked) play();
     });
     render();
-    return { start };
+    return { start, duck, unduck };
   })();
 
   window.addEventListener('resize', () => { if (raf) resizeCanvas(); });
