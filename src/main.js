@@ -21,7 +21,7 @@ import './style.css';
   }
   const storage = {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (_) { return d; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) { /* ignore */ } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { return false; } },
   };
 
   /* ───────── 토스트 ───────── */
@@ -216,6 +216,7 @@ import './style.css';
     initCountdown();
     initCoupons();
     initReply();
+    initSnap();
   }
 
   function countUp(el, target, dur) {
@@ -596,6 +597,73 @@ import './style.css';
     // 브라우저가 세로 스크롤로 판단하면 pointercancel 이 옴 → 긁기 중단 (스크롤은 그대로 진행)
     canvas.addEventListener('pointercancel', () => { drawing = false; });
     canvas.addEventListener('lostpointercapture', () => { drawing = false; });
+  }
+
+  /* ───────── 스냅: 카메라로 찍어서 액자에 담기 ───────── */
+  function initSnap() {
+    const KEY = 'gurui-snap-v1';
+    const img = $('#snapImg'), empty = $('#snapEmpty'), cap = $('#snapCaption');
+    const frame = $('#snapFrame'), shoot = $('#snapShoot'), pick = $('#snapPick');
+    const cam = $('#snapCam'), file = $('#snapFile');
+    let current = storage.get(KEY, null);
+
+    const fmt = iso => {
+      const d = new Date(iso);
+      return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    };
+    function render() {
+      const has = !!(current && current.data);
+      img.hidden = !has;
+      empty.hidden = has;
+      frame.classList.toggle('has-photo', has);
+      if (has) { img.src = current.data; cap.textContent = `${fmt(current.at)} · 우리 ♥`; }
+      else { img.removeAttribute('src'); cap.textContent = '우리 ♥'; }
+      shoot.textContent = has ? '🔁 다시 찍기' : '📸 사진 찍기';
+    }
+    render();
+
+    async function handle(f) {
+      if (!f) return;
+      toast('사진 정리 중…', 1200);
+      try {
+        const data = await downscaleImage(f, 1000, 0.82);
+        current = { data, at: new Date().toISOString() };
+        const saved = storage.set(KEY, current);
+        render();
+        buzz([20, 30, 20]);
+        const r = frame.getBoundingClientRect();
+        confetti({ count: 70, hearts: true, x: r.left + r.width / 2, y: r.top + r.height / 2 });
+        toast(saved ? '액자에 담았어 📸' : '저장 공간이 부족해서 이번엔 화면에만 담았어', saved ? 1600 : 2600);
+      } catch (_) {
+        toast('사진을 읽지 못했어 😢 다시 시도해 줘', 2000);
+      }
+    }
+    cam.addEventListener('change', () => { handle(cam.files && cam.files[0]); cam.value = ''; });
+    file.addEventListener('change', () => { handle(file.files && file.files[0]); file.value = ''; });
+    shoot.addEventListener('click', () => cam.click());
+    pick.addEventListener('click', () => file.click());
+    img.addEventListener('click', () => { if (img.src) openLightbox(img.src); });
+  }
+
+  // 파일 → 긴 변 max px 로 축소한 JPEG data URL (브라우저가 EXIF 회전을 반영해 그림)
+  function downscaleImage(fileObj, max, quality) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(fileObj);
+      const im = new Image();
+      im.onload = () => {
+        try {
+          const s = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
+          const c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(im.naturalWidth * s));
+          c.height = Math.max(1, Math.round(im.naturalHeight * s));
+          c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+          resolve(c.toDataURL('image/jpeg', quality));
+        } catch (e) { reject(e); }
+        finally { URL.revokeObjectURL(url); }
+      };
+      im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode')); };
+      im.src = url;
+    });
   }
 
   /* ───────── 답장 남기기 ───────── */

@@ -131,14 +131,27 @@
     <div class="collage" id="collage"></div>
   </section>
 
-  <!-- 쿠폰북 -->
-  <section class="coupon-section">
+  <!-- 스냅: 지금 이 순간 -->
+  <section class="snap-section">
     <div class="sec-head reveal">
-      <p class="sec-eyebrow">COUPON BOOK</p>
-      <h3 class="sec-title">서른셋 쿠폰북</h3>
-      <p class="sec-desc">은박을 <b>좌우로</b> 문질러서 확인해 봐. 위아래로 밀면 그냥 스크롤이 돼.<br>쓸 때는 종팔이 앞에서 <b>사용하기</b>를 눌러주면 돼.<br>유효기간: 서른셋 내내</p>
+      <p class="sec-eyebrow">OUR SNAP</p>
+      <h3 class="sec-title">지금 이 순간도 한 장</h3>
+      <p class="sec-desc">사진을 찍으면 이 액자에 담겨.<br>다시 찍기 전까지 이 폰에 그대로 남아 있어.</p>
     </div>
-    <div class="coupons" id="coupons"></div>
+    <figure class="snap-frame reveal" id="snapFrame">
+      <span class="tape snap-tape" aria-hidden="true"></span>
+      <div class="snap-photo">
+        <div class="snap-empty" id="snapEmpty"><span>📷</span>아직 사진이 없어<br><small>아래 버튼으로 찍어봐</small></div>
+        <img id="snapImg" alt="우리의 순간" hidden>
+      </div>
+      <figcaption id="snapCaption">우리 ♥</figcaption>
+    </figure>
+    <div class="snap-actions reveal">
+      <button class="btn" id="snapShoot" type="button">📸 사진 찍기</button>
+      <button class="btn ghost small" id="snapPick" type="button">앨범에서 고르기</button>
+    </div>
+    <input type="file" id="snapCam" accept="image/*" capture="user" hidden>
+    <input type="file" id="snapFile" accept="image/*" hidden>
   </section>
 
   <!-- 편지 -->
@@ -195,6 +208,16 @@
       </div>
       <p class="reply-note" id="replyNote">공유가 안 되는 브라우저에서는 글이 복사되니까 채팅방에 붙여넣기만 하면 돼.</p>
     </div>
+  </section>
+
+  <!-- 쿠폰북 -->
+  <section class="coupon-section">
+    <div class="sec-head reveal">
+      <p class="sec-eyebrow">COUPON BOOK</p>
+      <h3 class="sec-title">서른셋 쿠폰북</h3>
+      <p class="sec-desc">은박을 <b>좌우로</b> 문질러서 확인해 봐. 위아래로 밀면 그냥 스크롤이 돼.<br>쓸 때는 종팔이 앞에서 <b>사용하기</b>를 눌러주면 돼.<br>유효기간: 서른셋 내내</p>
+    </div>
+    <div class="coupons" id="coupons"></div>
   </section>
 </main>
 
